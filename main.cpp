@@ -8,7 +8,6 @@
 
 const glm::vec3 EYE = glm::vec3(0.0, -10.0, 20.0);
 const float FIELD_OF_VIEW = M_PI * 0.6;
-//const float FIELD_OF_VIEW = 108.0f ;
 const int IMAGE_SIZE = 500;
 const int Z_LIM = 100;
 
@@ -78,14 +77,6 @@ bool castRay(glm::vec3 ray) {
             }
         }
     }
-    
-    /*glm::vec3 pointP = EYE + ray * ((float)pointOnPositiveSide) ;
-    float eP = userFunction(pointP.x, pointP.y, pointP.z) ;
-    fprintf(stderr, "f(positive) = %f\n", eP);
-
-    glm::vec3 pointN = EYE + ray * ((float)pointOnNegativeSide) ;
-    float eN = userFunction(pointN.x, pointN.y, pointN.z) ;
-    fprintf(stderr, "f(Negative) = %f\n", eN);*/
 
     if ((findPositive == true) && (findNegative == true)){
         float functionRoot = findFunctionRoot(ray, pointOnPositiveSide, pointOnNegativeSide);
@@ -107,11 +98,6 @@ bool castRay(glm::vec3 ray) {
 
 int main(int argc, char** argv) {
     srand(time(NULL)) ;
-    /*fprintf(stderr, "2.1: %f\n", fabs(2.1));
-    fprintf(stderr, "-100.3: %f\n", fabs(-100.3));
-    fprintf(stderr, "-100.3: %d\n", (int)floor(fabs(-100.3)));
-    fprintf(stderr, "-500.001: %f\n", fabs(-500.001));
-    fprintf(stderr, "-500.001: %d\n", (int)floor(fabs(-500.001)));*/
     // Compute coordinates of the corners of the virtual screen.
     glm::vec3 dir = glm::normalize(-EYE);
     glm::vec3 left = glm::normalize(glm::cross(dir, glm::vec3(0.0f, 1.0f, 0.0f)));
