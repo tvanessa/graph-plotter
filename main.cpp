@@ -2,6 +2,7 @@
 #include <time.h>
 #include <cstdlib>
 #include <stdio.h>
+#include <assert.h>
 #include <glm/vec3.hpp>
 #include <glm/gtx/vector_angle.hpp>
 #include <glm/gtx/rotate_vector.hpp>
@@ -22,78 +23,49 @@ float userFunction(float x, float y, float z) {
     return z > 0.0f ? x*x + y*y + z*z - 70.0f : z; // Esfera
 }
 
-float findFunctionRoot(glm::vec3 ray, float pointOnPositiveSide, float pointOnNegativeSide) {
-    float mid ;
-    if (pointOnNegativeSide >= pointOnPositiveSide) {
-        for (int step = 0; step < 55; ++step) { //52bits
-            mid = (pointOnNegativeSide + pointOnPositiveSide) / 2 ;
-            glm::vec3 mid_point = EYE + (ray * ((float)mid)) ;
-            float mid_evaluate = userFunction(mid_point.x, mid_point.y, mid_point.z) ;     
-
-            if (mid_evaluate < 0) 
-                pointOnNegativeSide = mid ; 
-            else pointOnPositiveSide = mid ;
-            /*if (step == 54)
-                fprintf(stderr, "f(root) = %f\n", mid_evaluate);*/
-        }
-    }
-    return mid ; // 
+float evaluateUserFunction(glm::vec3 ray, float multiplier) {
+    glm::vec3 pointInRay = EYE + ray * multiplier;
+    return userFunction(pointInRay.x, pointInRay.y, pointInRay.z) ;
 }
 
-float generateRandom(float left, float right) {
-    float _random = (float)rand() / RAND_MAX ;
-    return left + _random * (right - left) ;
+float findFunctionRoot(glm::vec3 ray, float pointOnPositiveSide, float pointOnNegativeSide) {
+    assert(pointOnNegativeSide >= pointOnPositiveSide);  
+    float mid ;
+    for (int step = 0; step < 55; ++step) { //52bits
+        mid = (pointOnNegativeSide + pointOnPositiveSide) / 2 ;
+        if (evaluateUserFunction(ray, mid) < 0) 
+            pointOnNegativeSide = mid ; 
+        else
+            pointOnPositiveSide = mid ;
+    }
+    return mid;
 }
 
 int parity(float a) {
-    int n = (int)floor(a) ;
-    if (n % 2 == 0) //even
-        return 0 ;
-    else
-        return 1 ;
-}
-
-float evaluateUserFunction(glm::vec3 pointInRay) {
-    return userFunction(pointInRay.x, pointInRay.y, pointInRay.z) ;
+    int intPart = (int)floor(a) ;
+    return !(intPart % 2 == 0);
 }
 
 bool castRay(glm::vec3 ray) {
     // Encontrar puntos en la trayectoria del rayo tales que userFunction(ray * pointOnPositiveSide) > 0 y userFunction(ray * pointOnNegativeSide) < 0.
+    assert(evaluateUserFunction(EYE, 0.0f) > 0.0f and "EYE should be on positive side of function.");  
     int iterations = 500 ;
-    float pointOnPositiveSide = 0;
     float pointOnNegativeSide = Z_LIM;
-    bool findNegative = evaluateUserFunction(EYE + ray * pointOnPositiveSide) > 0.0f;
-    bool findPositive = evaluateUserFunction(EYE + ray * pointOnNegativeSide) < 0.0f;
+    bool findNegative = evaluateUserFunction(ray, pointOnNegativeSide) < 0.0f;
 
     while (iterations--) {
-        float _random = generateRandom(0, pointOnNegativeSide) ;
-        glm::vec3 point = EYE + ray * ((float)_random) ;
-        float evaluate = evaluateUserFunction(point) ;
-        if (evaluate < 0) {
-            float tmpNegative = _random ;
-            if (tmpNegative < pointOnNegativeSide){
-                pointOnNegativeSide = tmpNegative ;
-                findNegative = true ;
-            }
+        float randomMultiplier = ((float) rand() / RAND_MAX) * pointOnNegativeSide;
+        if (evaluateUserFunction(ray, randomMultiplier) < 0) {
+            pointOnNegativeSide = randomMultiplier;
+            findNegative = true;
         }
     }
-
-    if ((findPositive == true) && (findNegative == true)){
-        float functionRoot = findFunctionRoot(ray, pointOnPositiveSide, pointOnNegativeSide);
-        glm::vec3 root = EYE + ray * ((float)functionRoot) ; // Busqueda binaria.
-        //fprintf(stderr, "(%.3f, %.3f, %.3f)  ", root.x, root.y, root.z);
-        // Regresar falso si cae en cuadrito blanco, verdadero si cae en cuadrito negro.
-        if (parity(root.x) == parity(root.y))
-            return true ;
-        else
-            return false ;
-
-    } else {
-     if (findPositive == false) 
-            fprintf(stderr, "Posive side not found\n");
-        if (findNegative == false)
-            fprintf(stderr, "Negative side not found\n");
+    if (not findNegative){
+        return false;
     }
+    float functionRoot = findFunctionRoot(ray, 0.0f /* pointOnPositiveSide */, pointOnNegativeSide);
+    glm::vec3 root = EYE + ray * ((float)functionRoot) ; // Busqueda binaria.
+    return parity(root.x) == parity(root.y); // Regresar falso si cae en cuadrito blanco, verdadero si cae en cuadrito negro.
 }
 
 int main(int argc, char** argv) {
@@ -106,12 +78,6 @@ int main(int argc, char** argv) {
     glm::vec3 topRight = EYE + dir + left - up;
     glm::vec3 bottomLeft = EYE + dir - left + up;
     glm::vec3 bottomRight = EYE + dir + left + up;
-    fprintf(stderr, "norm: %f\n", glm::distance2(topLeft, topRight));
-    fprintf(stderr, "norm: %f\n", glm::distance2(bottomLeft, bottomRight));
-    fprintf(stderr, "norm: %f\n", glm::distance2(topLeft, bottomLeft));
-    fprintf(stderr, "norm: %f\n", glm::distance2(topRight, bottomRight));
-    fprintf(stderr, "norm: %f\n", glm::distance2(topLeft, bottomRight));
-    fprintf(stderr, "norm: %f\n", glm::distance2(topRight, bottomLeft));
 
     // Cast rays onto function and generate "chess board" image.
     bool chessBoard[IMAGE_SIZE][IMAGE_SIZE];
@@ -120,12 +86,9 @@ int main(int argc, char** argv) {
             glm::vec3 pixelReference =
                     topLeft + (topRight - topLeft) * ((float) pixelX / IMAGE_SIZE )
                             + (bottomLeft - topLeft) * ((float) pixelY / IMAGE_SIZE );
-            //fprintf(stderr, "(%.3f, %.3f, %.3f)  ", pixelReference.x, pixelReference.y, pixelReference.z);
-            glm::vec3 pixelRay = glm::normalize(EYE - pixelReference);
-
-            chessBoard[pixelY][pixelX] = castRay(-pixelRay);
+            glm::vec3 pixelRay = glm::normalize(pixelReference - EYE);
+            chessBoard[pixelY][pixelX] = castRay(pixelRay);
         }
-        //fprintf(stderr, "\n");
     }
   
     // Detect borders on "chess board".
